@@ -715,15 +715,23 @@ Always place a clear, standalone heading above each table like:
 
       console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
-      // Use environment variables for endpoint and key to avoid leaking secrets in source control
-      const azureOpenAiEndpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT as string;
-      const azureOpenAiApiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY as string;
+      // Use environment variables for endpoint and key; validate before calling
+      const azureOpenAiEndpoint = (import.meta.env.VITE_AZURE_OPENAI_ENDPOINT as string) || '';
+      const azureOpenAiApiKey = (import.meta.env.VITE_AZURE_OPENAI_API_KEY as string) || '';
+      const azureOpenAiDeployment = (import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT as string) || 'gpt-4o-mini';
+      const azureOpenAiApiVersion = (import.meta.env.VITE_AZURE_OPENAI_API_VERSION as string) || '2025-01-01-preview';
 
-      const response = await fetch(`${azureOpenAiEndpoint}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2025-01-01-preview`, {
+      if (!azureOpenAiEndpoint || !azureOpenAiApiKey) {
+        throw new Error('Missing Azure OpenAI configuration. Please set VITE_AZURE_OPENAI_ENDPOINT and VITE_AZURE_OPENAI_API_KEY in your .env file.');
+      }
+
+      const chatUrl = `${azureOpenAiEndpoint.replace(/\/$/, '')}/openai/deployments/${azureOpenAiDeployment}/chat/completions?api-version=${azureOpenAiApiVersion}`;
+
+      const response = await fetch(chatUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-key': azureOpenAiApiKey || '',
+          'api-key': azureOpenAiApiKey,
         },
         body: JSON.stringify(requestBody),
       });

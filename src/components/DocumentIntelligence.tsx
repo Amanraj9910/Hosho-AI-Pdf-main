@@ -40,25 +40,37 @@ const DocumentIntelligence: React.FC<DocumentIntelligenceProps> = ({
       onProcessingStep('Uploading to Azure Document Intelligence...');
       onProgress(30);
       
-      const formData = new FormData();
-      formData.append('file', file);
-
-      // Use environment variables for endpoint and key to avoid leaking secrets
-     const formRecognizerEndpoint = import.meta.env.VITE_AZURE_FORM_RECOGNIZER_ENDPOINT as string;
-     const formRecognizerKey = import.meta.env.VITE_AZURE_FORM_RECOGNIZER_KEY as string;
-
-     const analyzeResponse = await fetch(`${formRecognizerEndpoint}/formrecognizer/documentModels/prebuilt-document:analyze?api-version=2023-07-31`, {
-       method: 'POST',
-       headers: {
-         'Ocp-Apim-Subscription-Key': formRecognizerKey || '',
-       },
-       body: formData,
-     });
-      if (!analyzeResponse.ok) {
-        throw new Error(`Analysis failed: ${analyzeResponse.status} ${analyzeResponse.statusText}`);
+      // Validate environment variables
+      const formRecognizerEndpoint = (import.meta.env.VITE_AZURE_FORM_RECOGNIZER_ENDPOINT as string) || '';
+      const formRecognizerKey = (import.meta.env.VITE_AZURE_FORM_RECOGNIZER_KEY as string) || '';
+      if (!formRecognizerEndpoint || !formRecognizerKey) {
+        throw new Error('Missing Azure Form Recognizer configuration. Please set VITE_AZURE_FORM_RECOGNIZER_ENDPOINT and VITE_AZURE_FORM_RECOGNIZER_KEY in your .env file.');
       }
 
-      const operationLocation = analyzeResponse.headers.get('Operation-Location');
+      // Send the file bytes directly as the request body with correct content type
+      const analyzeUrl = `${formRecognizerEndpoint.replace(/\/$/, '')}/formrecognizer/documentModels/prebuilt-document:analyze?api-version=2023-07-31`;
+      let analyzeResponse: Response;
+      try {
+        analyzeResponse = await fetch(analyzeUrl, {
+          method: 'POST',
+          headers: {
+            'Ocp-Apim-Subscription-Key': formRecognizerKey,
+            'Content-Type': file.type || 'application/pdf',
+          },
+          body: file,
+        });
+      } catch (networkErr: any) {
+        console.error('Network error calling Azure Form Recognizer:', networkErr);
+        throw new Error('Network error calling Azure Form Recognizer. This is often caused by CORS when calling from the browser. Consider using a serverless proxy.');
+      }
+
+      if (!analyzeResponse.ok) {
+        const errorText = await analyzeResponse.text().catch(() => '');
+        console.error('Form Recognizer analyze error:', analyzeResponse.status, analyzeResponse.statusText, errorText);
+        throw new Error(`Analysis failed: ${analyzeResponse.status} ${analyzeResponse.statusText}${errorText ? ` - ${errorText}` : ''}`);
+      }
+
+      const operationLocation = analyzeResponse.headers.get('Operation-Location') || analyzeResponse.headers.get('operation-location');
       if (!operationLocation) {
         throw new Error('No operation location returned from analysis');
       }
