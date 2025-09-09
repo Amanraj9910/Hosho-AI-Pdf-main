@@ -7,8 +7,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }: { mode: string }) => ({
-  base: "./", // This ensures assets are loaded correctly
+export default defineConfig({
+  base: "./", // Ensure assets are loaded correctly
   server: {
     host: "::",
     port: 8080,
@@ -25,7 +25,7 @@ export default defineConfig(({ mode }: { mode: string }) => ({
     outDir: "dist",
     assetsDir: "assets",
     sourcemap: false,
-    minify: "esbuild",
+    minify: 'esbuild', // literal type matches Vite types
     rollupOptions: {
       output: {
         manualChunks: {
@@ -35,4 +35,4 @@ export default defineConfig(({ mode }: { mode: string }) => ({
       }
     }
   },
-}));
+});
