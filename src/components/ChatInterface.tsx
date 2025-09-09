@@ -282,7 +282,7 @@ Always place a clear, standalone heading above each table like:
       const azureOpenAiEndpoint = (import.meta.env.VITE_AZURE_OPENAI_ENDPOINT as string) || '';
       const azureOpenAiApiKey = (import.meta.env.VITE_AZURE_OPENAI_API_KEY as string) || '';
       const azureOpenAiDeployment = (import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME as string) || 'gpt-4o-mini'; // ✅ Fixed variable name
-      const azureOpenAiApiVersion = '2025-01-01-preview';
+      const azureOpenAiApiVersion = '2024-12-01-preview';
 
       // ✅ Enhanced validation with specific error messages
       if (!azureOpenAiEndpoint) {
