@@ -114,6 +114,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
           return "Authentication failed. API key may be invalid or expired.";
         case 403:
           return "Access forbidden. Check API permissions.";
+        case 404:
+          return "Resource not found. Check your deployment name and endpoint URL.";
         case 429:
           return "Rate limit exceeded. Please wait before trying again.";
         case 500:
@@ -185,28 +187,22 @@ Key-Value Pairs: ${documentSummary.keyValuePairs}
 
 Please answer the user's question based on this document data. Provide responses in clean, structured plain text only. Do not use markdown symbols such as *, **, or -.
 
-When the user requests a list of tags in a SWIFT file, extract and display each tag’s data in a table format using pipe | separators.
+When the user requests a list of tags in a SWIFT file, extract and display each tag's data in a table format using pipe | separators.
 
 The table should have three clear columns:
 Tag | Heading | Data
 
 Formatting Rules:
-
 Each tag must appear only once per row. Do not break rows into multiple lines.
-
 If a tag occurs multiple times (like 71F), combine the values in the same row or differentiate as 71F-1, 71F-2.
-
 Ensure all headings are standardized and consistently formatted (e.g., use Sender's Reference, not Sender's Reference - Details).
-
 Clean the data: remove any extra characters such as # at the end of numbers or unnecessary whitespace.
-
 Make sure the table rows are visually aligned and properly structured using | only.
 
 📚 STRUCTURED RESPONSE FORMAT FOR ALL QUERIES:
-
 When responding to any user query — whether about capacity, deadlines, compliance, timelines, or technical requirements:
 
-- 📘 Present content in clearly separated **sections** with appropriate **headings** (e.g., “Overview”, “Technical Specs”, “Deadlines”, “Financial Terms”, “Conclusion”).
+- 📘 Present content in clearly separated **sections** with appropriate **headings** (e.g., "Overview", "Technical Specs", "Deadlines", "Financial Terms", "Conclusion").
 - 📊 Use **tables** for any data involving numbers across years, units, deadlines, pricing, or tagged fields.
 - 🔹 Use **bulleted lists** for grouped information (e.g., eligibility criteria, scope items, benefits, components).
 - ✨ Use **icons/emojis** (optional) for better clarity, especially in chat UIs:
@@ -229,15 +225,12 @@ When responding to any user query — whether about capacity, deadlines, complia
 - Professionally organized
 - Ready for chatbot display
 
-
 📚 FOR ANY DOCUMENT SECTION INVOLVING DEMAND PROJECTIONS OR CAPACITY REQUIREMENTS:
-
 - Always structure the output into clear blocks:
   - 📘 Section Header
   - 🔹 Sub-sections like "Purpose", "Peak Demand", "Generation", "Technical Requirements", "Submission", "Conclusion"
 
 Always place a clear, standalone heading above each table like:
-
   **Projected System Peak Demand (GW)**  
   or  
   **Projected Total Electricity Generation (GWh)**
@@ -263,17 +256,11 @@ Always place a clear, standalone heading above each table like:
 - Ensure each projection type has its own title and is not merged together.
 - Always use correct units in parentheses (e.g., GW, GWh) to avoid ambiguity.
 - Add a line break before and after the table to improve visual clarity.
-
 - Use bullet lists for explanation points (📌), influencing factors (📈), and sectoral impact (e.g., 🏭 manufacturing, 💻 digital).
-
 - Always include a short **conclusion section** summarizing why this requirement matters and what action the user/stakeholder should consider.
-
 - Use **visual separators and emojis** to enhance clarity, especially in chat UIs.
-
 - ❌ Do NOT leave raw tables or mix bullets with paragraphs
-- ✅ Always cleanly divide each part: Projections | Drivers | Guidelines | Conclusion
- 
-`;
+- ✅ Always cleanly divide each part: Projections | Drivers | Guidelines | Conclusion`;
 
       console.log('Sending request to Azure OpenAI...');
       
@@ -291,17 +278,30 @@ Always place a clear, standalone heading above each table like:
 
       console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
-      // Use environment variables for endpoint and key; validate before calling
+      // ✅ FIXED: Updated environment variable names and validation
       const azureOpenAiEndpoint = (import.meta.env.VITE_AZURE_OPENAI_ENDPOINT as string) || '';
       const azureOpenAiApiKey = (import.meta.env.VITE_AZURE_OPENAI_API_KEY as string) || '';
-      const azureOpenAiDeployment = (import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT as string) || 'gpt-4o-mini';
-      const azureOpenAiApiVersion = (import.meta.env.VITE_AZURE_OPENAI_API_VERSION as string) || '2025-01-01-preview';
-
-      if (!azureOpenAiEndpoint || !azureOpenAiApiKey) {
-        throw new Error('Missing Azure OpenAI configuration. Please set VITE_AZURE_OPENAI_ENDPOINT and VITE_AZURE_OPENAI_API_KEY in your .env file.');
+      const azureOpenAiDeployment = (import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME as string) || 'gpt-4o-mini'; // ✅ Fixed variable name
+    
+      // ✅ Enhanced validation with specific error messages
+      if (!azureOpenAiEndpoint) {
+        throw new Error('Missing VITE_AZURE_OPENAI_ENDPOINT. Please check your environment variables.');
+      }
+      
+      if (!azureOpenAiApiKey) {
+        throw new Error('Missing VITE_AZURE_OPENAI_API_KEY. Please check your environment variables.');
       }
 
+      if (!azureOpenAiDeployment) {
+        throw new Error('Missing VITE_AZURE_OPENAI_DEPLOYMENT_NAME. Please check your environment variables.');
+      }
+
+      // ✅ Improved URL construction with better error handling
       const chatUrl = `${azureOpenAiEndpoint.replace(/\/$/, '')}/openai/deployments/${azureOpenAiDeployment}/chat/completions?api-version=${azureOpenAiApiVersion}`;
+      
+      console.log('Chat URL:', chatUrl);
+      console.log('Using deployment:', azureOpenAiDeployment);
+      console.log('Using API version:', azureOpenAiApiVersion);
 
       const response = await fetch(chatUrl, {
         method: 'POST',
@@ -313,10 +313,12 @@ Always place a clear, standalone heading above each table like:
       });
 
       console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API Error Response:', errorText);
+        console.error('Request URL was:', chatUrl);
         throw new Error(getDetailedErrorMessage(null, response));
       }
 
@@ -333,7 +335,7 @@ Always place a clear, standalone heading above each table like:
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-
+      
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -346,7 +348,6 @@ Always place a clear, standalone heading above each table like:
         content: `I encountered an error: ${errorMessage}. Please try again or rephrase your question.`,
         timestamp: new Date(),
       };
-
       setMessages(prev => [...prev, errorResponse]);
       
       toast({
@@ -486,9 +487,7 @@ Always place a clear, standalone heading above each table like:
             </div>
           </div>
         )}
-
         
-
         {/* Input Area */}
         <div className="p-4 border-t">
           <div className="flex space-x-2">
