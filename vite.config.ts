@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: "./", // Ensure assets are loaded correctly
+  base: "/", // Base path for production
   server: {
     host: "::",
     port: 8080,
