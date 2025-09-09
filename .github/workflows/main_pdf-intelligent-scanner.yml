@@ -27,11 +27,15 @@ jobs:
           npm run build --if-present
           npm run test --if-present
         env:
-          # Add your environment variables here for build time
+          # Azure Form Recognizer
           VITE_AZURE_FORM_RECOGNIZER_ENDPOINT: ${{ secrets.VITE_AZURE_FORM_RECOGNIZER_ENDPOINT }}
           VITE_AZURE_FORM_RECOGNIZER_KEY: ${{ secrets.VITE_AZURE_FORM_RECOGNIZER_KEY }}
-          VITE_GPT_API_KEY: ${{ secrets.VITE_GPT_API_KEY }}
-          # Add any other VITE_ environment variables you need
+          
+          # Azure OpenAI
+          VITE_AZURE_OPENAI_ENDPOINT: ${{ secrets.VITE_AZURE_OPENAI_ENDPOINT }}
+          VITE_AZURE_OPENAI_API_KEY: ${{ secrets.VITE_AZURE_OPENAI_API_KEY }}
+          
+
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
