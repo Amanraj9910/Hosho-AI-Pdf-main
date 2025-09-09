@@ -31,11 +31,13 @@ jobs:
           VITE_AZURE_FORM_RECOGNIZER_ENDPOINT: ${{ secrets.VITE_AZURE_FORM_RECOGNIZER_ENDPOINT }}
           VITE_AZURE_FORM_RECOGNIZER_KEY: ${{ secrets.VITE_AZURE_FORM_RECOGNIZER_KEY }}
           
-          # Azure OpenAI
+          # Azure OpenAI (MISSING - ADD THESE)
           VITE_AZURE_OPENAI_ENDPOINT: ${{ secrets.VITE_AZURE_OPENAI_ENDPOINT }}
           VITE_AZURE_OPENAI_API_KEY: ${{ secrets.VITE_AZURE_OPENAI_API_KEY }}
+          VITE_AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.VITE_AZURE_OPENAI_DEPLOYMENT_NAME }}
           
-
+          # OpenAI (if using regular OpenAI)
+          VITE_GPT_API_KEY: ${{ secrets.VITE_GPT_API_KEY }}
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
