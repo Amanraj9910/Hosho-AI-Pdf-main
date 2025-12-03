@@ -7,8 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Send, Bot, User, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import PromptSettings from '@/components/PromptSettings';
-import { usePromptTemplate } from '@/lib/usePromptTemplate';
 
 interface Message {
   id: string;
@@ -28,7 +26,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
   const [apiError, setApiError] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { currentTemplate, setCurrentTemplate, generateSystemPrompt } = usePromptTemplate();
 
   // Response formatting functions
   const formatResponse = (content: string): string => {
@@ -60,7 +57,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-
+      
       // Detect table-like content (contains | or consistent spacing)
       if (line.includes('|') && line.split('|').length > 2) {
         if (!inTable) {
@@ -89,29 +86,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
   const createTable = (rows: string[]): string => {
     if (rows.length === 0) return '';
 
-    let tableHtml = '<div class="overflow-x-auto my-4 rounded-lg border border-gray-200 shadow-sm"><table class="w-full border-collapse text-sm text-left text-gray-500">';
-
+    let tableHtml = '<table class="w-full border-collapse border border-gray-300 my-4">';
+    
     rows.forEach((row, index) => {
       const cells = row.split('|').map(cell => cell.trim()).filter(cell => cell);
       const isHeader = index === 0;
-
-      if (isHeader) {
-        tableHtml += '<thead class="text-xs text-gray-700 uppercase bg-gray-50"><tr>';
-        cells.forEach(cell => {
-          tableHtml += `<th scope="col" class="px-6 py-3 font-semibold border-b border-gray-200">${cell}</th>`;
-        });
-        tableHtml += '</tr></thead><tbody>';
-      } else {
-        const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        tableHtml += `<tr class="${bgClass} hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-0">`;
-        cells.forEach(cell => {
-          tableHtml += `<td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${cell}</td>`;
-        });
-        tableHtml += '</tr>';
-      }
+      const tag = isHeader ? 'th' : 'td';
+      const bgClass = isHeader ? 'bg-gray-100' : (index % 2 === 0 ? 'bg-white' : 'bg-gray-50');
+      
+      tableHtml += `<tr class="${bgClass}">`;
+      cells.forEach(cell => {
+        tableHtml += `<${tag} class="border border-gray-300 px-3 py-2 text-left ${isHeader ? 'font-bold' : ''}">${cell}</${tag}>`;
+      });
+      tableHtml += '</tr>';
     });
-
-    tableHtml += '</tbody></table></div>';
+    
+    tableHtml += '</table>';
     return tableHtml;
   };
 
@@ -132,11 +122,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
           return `API request failed with status ${response.status}`;
       }
     }
-
+    
     if (error.message.includes('fetch')) {
       return "Network error. Please check your connection.";
     }
-
+    
     return error.message || "Unknown error occurred";
   };
 
@@ -185,23 +175,115 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
         keyValuePairs: extractedData.content?.keyValuePairs?.length || 0,
       };
 
-      const systemPrompt = generateSystemPrompt({
-        fileName: documentSummary.fileName,
-        pageCount: documentSummary.pageCount,
-        textContent: documentSummary.textContent,
-        tableCount: documentSummary.tables,
-        keyValueCount: documentSummary.keyValuePairs,
-      });
+      const systemPrompt = `You are an AI assistant analyzing a document. Here is the extracted data from the document:
+
+Document: ${documentSummary.fileName}
+Pages: ${documentSummary.pageCount}
+Content Preview: ${documentSummary.textContent}
+Tables Found: ${documentSummary.tables}
+Key-Value Pairs: ${documentSummary.keyValuePairs}
+
+Please answer the user's question based on this document data. Provide responses in clean, structured plain text only. Do not use markdown symbols such as *, **, or -.
+
+When the user requests a list of tags in a SWIFT file, extract and display each tag’s data in a table format using pipe | separators.
+
+The table should have three clear columns:
+Tag | Heading | Data
+
+Formatting Rules:
+
+Each tag must appear only once per row. Do not break rows into multiple lines.
+
+If a tag occurs multiple times (like 71F), combine the values in the same row or differentiate as 71F-1, 71F-2.
+
+Ensure all headings are standardized and consistently formatted (e.g., use Sender's Reference, not Sender's Reference - Details).
+
+Clean the data: remove any extra characters such as # at the end of numbers or unnecessary whitespace.
+
+Make sure the table rows are visually aligned and properly structured using | only.
+
+📚 STRUCTURED RESPONSE FORMAT FOR ALL QUERIES:
+
+When responding to any user query — whether about capacity, deadlines, compliance, timelines, or technical requirements:
+
+- 📘 Present content in clearly separated **sections** with appropriate **headings** (e.g., “Overview”, “Technical Specs”, “Deadlines”, “Financial Terms”, “Conclusion”).
+- 📊 Use **tables** for any data involving numbers across years, units, deadlines, pricing, or tagged fields.
+- 🔹 Use **bulleted lists** for grouped information (e.g., eligibility criteria, scope items, benefits, components).
+- ✨ Use **icons/emojis** (optional) for better clarity, especially in chat UIs:
+  - 📌 Requirement
+  - 📅 Date/Deadline
+  - ⚙️ Technical Detail
+  - 💰 Financial Info
+  - 📈 Trend/Projection
+  - ✅ Available/Accepted
+  - ❌ Not Allowed
+- 📄 Keep responses concise but complete. Avoid long paragraphs.
+- 🟢 Always end with a **brief conclusion** or summary remark when appropriate, explaining:
+  - Why the section is important
+  - What action or attention it requires
+  - How it relates to overall document objectives
+
+✅ This format ensures answers are:
+- Easy to scan
+- Visually structured
+- Professionally organized
+- Ready for chatbot display
+
+
+📚 FOR ANY DOCUMENT SECTION INVOLVING DEMAND PROJECTIONS OR CAPACITY REQUIREMENTS:
+
+- Always structure the output into clear blocks:
+  - 📘 Section Header
+  - 🔹 Sub-sections like "Purpose", "Peak Demand", "Generation", "Technical Requirements", "Submission", "Conclusion"
+
+Always place a clear, standalone heading above each table like:
+
+  **Projected System Peak Demand (GW)**  
+  or  
+  **Projected Total Electricity Generation (GWh)**
+
+- Do not inline the heading with the table itself. Add a **line break** between the heading and the table.
+
+✅ Example Format:
+
+📊 **Projected System Peak Demand (GW)**
+
+| Year | Upper | Base | Lower |
+|------|-------|------|-------|
+| 2024 | 8.5   | 8.3  | 8.1   |
+| ...  | ...   | ...  | ...   |
+
+📊 **Projected Total Electricity Generation (GWh)**
+
+| Year | Upper | Base | Lower |
+|------|-------|------|-------|
+| 2024 | 61,400 | 60,200 | 59,100 |
+| ...  | ...    | ...    | ...    |
+
+- Ensure each projection type has its own title and is not merged together.
+- Always use correct units in parentheses (e.g., GW, GWh) to avoid ambiguity.
+- Add a line break before and after the table to improve visual clarity.
+
+- Use bullet lists for explanation points (📌), influencing factors (📈), and sectoral impact (e.g., 🏭 manufacturing, 💻 digital).
+
+- Always include a short **conclusion section** summarizing why this requirement matters and what action the user/stakeholder should consider.
+
+- Use **visual separators and emojis** to enhance clarity, especially in chat UIs.
+
+- ❌ Do NOT leave raw tables or mix bullets with paragraphs
+- ✅ Always cleanly divide each part: Projections | Drivers | Guidelines | Conclusion
+ 
+`;
 
       console.log('Sending request to Azure OpenAI...');
-
+      
       const requestBody = {
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage.content }
         ],
-        max_tokens: currentTemplate.maxTokens,
-        temperature: currentTemplate.temperature,
+        max_tokens: 1000,
+        temperature: 0.7,
         top_p: 0.95,
         frequency_penalty: 0,
         presence_penalty: 0
@@ -213,15 +295,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
       const azureOpenAiEndpoint = (import.meta.env.VITE_AZURE_OPENAI_ENDPOINT as string) || '';
       const azureOpenAiApiKey = (import.meta.env.VITE_AZURE_OPENAI_API_KEY as string) || '';
       const azureOpenAiDeployment = (import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT as string) || 'gpt-4o-mini';
-      const azureOpenAiApiVersion = (import.meta.env.VITE_AZURE_OPENAI_API_VERSION as string) || '2024-08-01-preview';
+      const azureOpenAiApiVersion = (import.meta.env.VITE_AZURE_OPENAI_API_VERSION as string) || '2025-01-01-preview';
 
       if (!azureOpenAiEndpoint || !azureOpenAiApiKey) {
         throw new Error('Missing Azure OpenAI configuration. Please set VITE_AZURE_OPENAI_ENDPOINT and VITE_AZURE_OPENAI_API_KEY in your .env file.');
       }
 
-      // Ensure endpoint doesn't have trailing slash
-      const cleanEndpoint = azureOpenAiEndpoint.replace(/\/$/, '');
-      const chatUrl = `${cleanEndpoint}/openai/deployments/${azureOpenAiDeployment}/chat/completions?api-version=${azureOpenAiApiVersion}`;
+      const chatUrl = `${azureOpenAiEndpoint.replace(/\/$/, '')}/openai/deployments/${azureOpenAiDeployment}/chat/completions?api-version=${azureOpenAiApiVersion}`;
 
       const response = await fetch(chatUrl, {
         method: 'POST',
@@ -233,7 +313,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
       });
 
       console.log('Response status:', response.status);
-
+      
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API Error Response:', errorText);
@@ -242,7 +322,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
 
       const data = await response.json();
       console.log('Response data:', data);
-
+      
       const assistantResponse = data.choices?.[0]?.message?.content || 'I apologize, but I received an empty response. Please try rephrasing your question.';
 
       const assistantMessage: Message = {
@@ -256,10 +336,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
 
     } catch (error) {
       console.error('Error sending message:', error);
-
+      
       const errorMessage = getDetailedErrorMessage(error);
       setApiError(errorMessage);
-
+      
       const errorResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -268,7 +348,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
       };
 
       setMessages(prev => [...prev, errorResponse]);
-
+      
       toast({
         title: "Error sending message",
         description: errorMessage,
@@ -299,28 +379,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
   };
 
   return (
-    <Card className="h-full flex flex-col max-w-full shadow-lg border-gray-200">
+    <Card className="h-[600px] flex flex-col max-w-full">
       <CardHeader className="flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center">
-              <MessageSquare className="mr-2 h-5 w-5" />
-              AI Document Chat
-            </CardTitle>
-            <CardDescription>
-              Ask questions about your document and get intelligent answers
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              {currentTemplate.name}
-            </Badge>
-            <PromptSettings
-              currentTemplateId={currentTemplate.id}
-              onTemplateChange={setCurrentTemplate}
-            />
-          </div>
-        </div>
+        <CardTitle className="flex items-center">
+          <MessageSquare className="mr-2 h-5 w-5" />
+          AI Document Chat
+        </CardTitle>
+        <CardDescription>
+          Ask questions about your document and get intelligent answers
+        </CardDescription>
         {apiError && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -330,7 +397,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
           </Alert>
         )}
       </CardHeader>
-
+      
       <CardContent className="flex-1 flex flex-col p-0 min-h-0">
         {/* Messages Area */}
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
@@ -341,14 +408,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`flex max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                    } items-start space-x-2`}
+                  className={`flex max-w-[85%] ${
+                    message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                  } items-start space-x-2`}
                 >
                   <div
-                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${message.role === 'user'
-                      ? 'bg-blue-600 text-white ml-2'
-                      : 'bg-purple-600 text-white mr-2'
-                      }`}
+                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      message.role === 'user'
+                        ? 'bg-blue-600 text-white ml-2'
+                        : 'bg-purple-600 text-white mr-2'
+                    }`}
                   >
                     {message.role === 'user' ? (
                       <User className="h-4 w-4" />
@@ -357,20 +426,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
                     )}
                   </div>
                   <div
-                    className={`rounded-lg p-3 ${message.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-900'
-                      }`}
+                    className={`rounded-lg p-3 ${
+                      message.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-900'
+                    }`}
                   >
-                    <div
+                    <div 
                       className="text-sm overflow-x-auto"
-                      dangerouslySetInnerHTML={{
-                        __html: message.role === 'assistant' ? formatResponse(message.content) : message.content
+                      dangerouslySetInnerHTML={{ 
+                        __html: message.role === 'assistant' ? formatResponse(message.content) : message.content 
                       }}
                     />
                     <div
-                      className={`text-xs mt-1 ${message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-                        }`}
+                      className={`text-xs mt-1 ${
+                        message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                      }`}
                     >
                       {message.timestamp.toLocaleTimeString()}
                     </div>
@@ -378,7 +449,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
                 </div>
               </div>
             ))}
-
+            
             {isLoading && (
               <div className="flex justify-start">
                 <div className="flex items-start space-x-2">
@@ -416,7 +487,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
           </div>
         )}
 
-
+        
 
         {/* Input Area */}
         <div className="p-4 border-t">

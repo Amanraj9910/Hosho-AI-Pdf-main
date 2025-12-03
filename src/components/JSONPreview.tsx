@@ -25,7 +25,7 @@ const JSONPreview: React.FC<JSONPreviewProps> = ({ data }) => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
+
     toast({
       title: "Download started",
       description: "Your extracted data is being downloaded as JSON.",
@@ -38,7 +38,7 @@ const JSONPreview: React.FC<JSONPreviewProps> = ({ data }) => {
   };
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -50,9 +50,9 @@ const JSONPreview: React.FC<JSONPreviewProps> = ({ data }) => {
               Review the structured data extracted from your PDF
             </CardDescription>
           </div>
-          <Button 
+          <Button
             onClick={downloadJSON}
-            variant="outline" 
+            variant="outline"
             size="sm"
             className="flex items-center"
           >
@@ -61,16 +61,16 @@ const JSONPreview: React.FC<JSONPreviewProps> = ({ data }) => {
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+      <CardContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+          <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="tables">Tables</TabsTrigger>
             <TabsTrigger value="raw">Raw JSON</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="overview" className="space-y-4">
+
+          <TabsContent value="overview" className="flex-1 overflow-auto mt-4 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <h4 className="font-medium">Document Info</h4>
@@ -91,10 +91,10 @@ const JSONPreview: React.FC<JSONPreviewProps> = ({ data }) => {
               </div>
             </div>
           </TabsContent>
-          
-          <TabsContent value="content">
-            <ScrollArea className="h-96 w-full">
-              <div className="space-y-4">
+
+          <TabsContent value="content" className="flex-1 min-h-0 mt-4">
+            <ScrollArea className="h-full w-full">
+              <div className="space-y-4 pr-4">
                 <div>
                   <h4 className="font-medium mb-2 flex items-center">
                     <FileText className="mr-2 h-4 w-4" />
@@ -104,7 +104,7 @@ const JSONPreview: React.FC<JSONPreviewProps> = ({ data }) => {
                     {formatText(data.content?.text, 1000)}
                   </div>
                 </div>
-                
+
                 {data.content?.keyValuePairs && data.content.keyValuePairs.length > 0 && (
                   <div>
                     <h4 className="font-medium mb-2">Key-Value Pairs</h4>
@@ -125,11 +125,11 @@ const JSONPreview: React.FC<JSONPreviewProps> = ({ data }) => {
               </div>
             </ScrollArea>
           </TabsContent>
-          
-          <TabsContent value="tables">
-            <ScrollArea className="h-96 w-full">
+
+          <TabsContent value="tables" className="flex-1 min-h-0 mt-4">
+            <ScrollArea className="h-full w-full">
               {data.content?.tables && data.content.tables.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-4 pr-4">
                   {data.content.tables.map((table: any, index: number) => (
                     <div key={index} className="border rounded-lg p-3">
                       <h4 className="font-medium mb-2 flex items-center">
@@ -165,9 +165,9 @@ const JSONPreview: React.FC<JSONPreviewProps> = ({ data }) => {
               )}
             </ScrollArea>
           </TabsContent>
-          
-          <TabsContent value="raw">
-            <ScrollArea className="h-96 w-full">
+
+          <TabsContent value="raw" className="flex-1 min-h-0 mt-4">
+            <ScrollArea className="h-full w-full">
               <div className="bg-gray-900 text-green-400 p-4 rounded-lg text-sm font-mono">
                 <pre>{JSON.stringify(data, null, 2)}</pre>
               </div>
