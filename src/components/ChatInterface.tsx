@@ -124,6 +124,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
           return "Authentication failed. API key may be invalid or expired.";
         case 403:
           return "Access forbidden. Check API permissions.";
+        case 404:
+          return "Resource not found. Check your deployment name and endpoint URL.";
         case 429:
           return "Rate limit exceeded. Please wait before trying again.";
         case 500:
@@ -212,16 +214,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
       // Use environment variables for endpoint and key; validate before calling
       const azureOpenAiEndpoint = (import.meta.env.VITE_AZURE_OPENAI_ENDPOINT as string) || '';
       const azureOpenAiApiKey = (import.meta.env.VITE_AZURE_OPENAI_API_KEY as string) || '';
-      const azureOpenAiDeployment = (import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT as string) || 'gpt-4o-mini';
-      const azureOpenAiApiVersion = (import.meta.env.VITE_AZURE_OPENAI_API_VERSION as string) || '2024-08-01-preview';
+      const azureOpenAiDeployment = (import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME as string) || (import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT as string) || 'gpt-4o-mini';
+      const azureOpenAiApiVersion = (import.meta.env.VITE_AZURE_OPENAI_API_VERSION as string) || '2024-12-01-preview';
 
-      if (!azureOpenAiEndpoint || !azureOpenAiApiKey) {
-        throw new Error('Missing Azure OpenAI configuration. Please set VITE_AZURE_OPENAI_ENDPOINT and VITE_AZURE_OPENAI_API_KEY in your .env file.');
+      // Enhanced validation with specific error messages
+      if (!azureOpenAiEndpoint) {
+        throw new Error('Missing VITE_AZURE_OPENAI_ENDPOINT. Please check your environment variables.');
       }
 
-      // Ensure endpoint doesn't have trailing slash
-      const cleanEndpoint = azureOpenAiEndpoint.replace(/\/$/, '');
-      const chatUrl = `${cleanEndpoint}/openai/deployments/${azureOpenAiDeployment}/chat/completions?api-version=${azureOpenAiApiVersion}`;
+      if (!azureOpenAiApiKey) {
+        throw new Error('Missing VITE_AZURE_OPENAI_API_KEY. Please check your environment variables.');
+      }
+
+      if (!azureOpenAiDeployment) {
+        throw new Error('Missing VITE_AZURE_OPENAI_DEPLOYMENT_NAME or VITE_AZURE_OPENAI_DEPLOYMENT. Please check your environment variables.');
+      }
+
+      // Improved URL construction with better error handling
+      const chatUrl = `${azureOpenAiEndpoint.replace(/\/$/, '')}/openai/deployments/${azureOpenAiDeployment}/chat/completions?api-version=${azureOpenAiApiVersion}`;
+
+      console.log('Chat URL:', chatUrl);
+      console.log('Using deployment:', azureOpenAiDeployment);
+      console.log('Using API version:', azureOpenAiApiVersion);
 
       const response = await fetch(chatUrl, {
         method: 'POST',
@@ -233,10 +247,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
       });
 
       console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API Error Response:', errorText);
+        console.error('Request URL was:', chatUrl);
         throw new Error(getDetailedErrorMessage(null, response));
       }
 
@@ -266,7 +282,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
         content: `I encountered an error: ${errorMessage}. Please try again or rephrase your question.`,
         timestamp: new Date(),
       };
-
       setMessages(prev => [...prev, errorResponse]);
 
       toast({
@@ -415,8 +430,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
             </div>
           </div>
         )}
-
-
 
         {/* Input Area */}
         <div className="p-4 border-t">
