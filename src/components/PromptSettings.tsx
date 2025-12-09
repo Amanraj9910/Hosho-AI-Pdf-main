@@ -86,6 +86,7 @@ const PromptSettings: React.FC<PromptSettingsProps> = ({ onTemplateChange, curre
     };
 
     const handleCreateNew = () => {
+        setOpen(true);
         setIsEditing(true);
         setEditingTemplate({
             id: `custom_${Date.now()}`,

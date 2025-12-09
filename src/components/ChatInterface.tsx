@@ -52,35 +52,52 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
   };
 
   const formatTables = (content: string): string => {
-    // Simple table detection and formatting
     const lines = content.split('\n');
-    let inTable = false;
-    let tableRows: string[] = [];
     let result: string[] = [];
+    let i = 0;
 
-    for (let i = 0; i < lines.length; i++) {
+    while (i < lines.length) {
       const line = lines[i].trim();
 
-      // Detect table-like content (contains | or consistent spacing)
-      if (line.includes('|') && line.split('|').length > 2) {
-        if (!inTable) {
-          inTable = true;
-          tableRows = [];
+      // Skip empty lines and pure separator lines
+      if (!line || /^[\|\s\-]+$/.test(line)) {
+        if (line && !(/^[\|\s\-]+$/.test(line))) {
+          result.push(line);
         }
-        tableRows.push(line);
-      } else {
-        if (inTable) {
-          // End of table, format it
-          result.push(createTable(tableRows));
-          tableRows = [];
-          inTable = false;
-        }
-        if (line) result.push(line);
+        i++;
+        continue;
       }
-    }
 
-    if (inTable && tableRows.length > 0) {
-      result.push(createTable(tableRows));
+      // Check if this is a table line (contains |)
+      if (line.includes('|') && line.split('|').length > 1) {
+        const tableRows: string[] = [];
+        
+        // Collect all consecutive table rows
+        while (i < lines.length) {
+          const currentLine = lines[i].trim();
+          
+          // Skip separator lines
+          if (/^[\|\s\-]+$/.test(currentLine)) {
+            i++;
+            continue;
+          }
+          
+          // Stop if not a table line
+          if (!currentLine.includes('|')) {
+            break;
+          }
+          
+          tableRows.push(currentLine);
+          i++;
+        }
+
+        if (tableRows.length > 0) {
+          result.push(createTable(tableRows));
+        }
+      } else {
+        result.push(line);
+        i++;
+      }
     }
 
     return result.join('\n');
@@ -89,29 +106,73 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
   const createTable = (rows: string[]): string => {
     if (rows.length === 0) return '';
 
-    let tableHtml = '<div class="overflow-x-auto my-4 rounded-lg border border-gray-200 shadow-sm"><table class="w-full border-collapse text-sm text-left text-gray-500">';
+    // Parse and filter rows
+    const parsedRows = rows
+      .map(row => {
+        // Split by pipe and clean cells
+        const cells = row
+          .split('|')
+          .map(cell => cell.trim())
+          .filter(cell => cell); // Remove empty cells
 
-    rows.forEach((row, index) => {
-      const cells = row.split('|').map(cell => cell.trim()).filter(cell => cell);
-      const isHeader = index === 0;
+        // Skip separator rows (rows with only dashes)
+        if (cells.every(cell => /^-+$/.test(cell))) {
+          return null;
+        }
 
-      if (isHeader) {
-        tableHtml += '<thead class="text-xs text-gray-700 uppercase bg-gray-50"><tr>';
-        cells.forEach(cell => {
-          tableHtml += `<th scope="col" class="px-6 py-3 font-semibold border-b border-gray-200">${cell}</th>`;
-        });
-        tableHtml += '</tr></thead><tbody>';
-      } else {
-        const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        tableHtml += `<tr class="${bgClass} hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-0">`;
-        cells.forEach(cell => {
-          tableHtml += `<td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${cell}</td>`;
-        });
-        tableHtml += '</tr>';
+        return cells;
+      })
+      .filter((cells): cells is string[] => cells !== null); // Remove null entries
+
+    if (parsedRows.length === 0) return '';
+
+    // Ensure consistent column count across all rows
+    const maxCols = Math.max(...parsedRows.map(row => row.length));
+    const normalizedRows = parsedRows.map(row => {
+      // Pad with empty cells if needed
+      while (row.length < maxCols) {
+        row.push('');
       }
+      // Trim excess cells
+      return row.slice(0, maxCols);
     });
 
-    tableHtml += '</tbody></table></div>';
+    let tableHtml = `
+      <div class="overflow-x-auto my-4 rounded-lg border border-gray-300 shadow-md">
+        <table class="w-full border-collapse bg-white">
+          <thead>
+            <tr class="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+    `;
+
+    // First row is header
+    normalizedRows[0].forEach((cell) => {
+      tableHtml += `<th class="px-6 py-3 text-left font-semibold text-sm border-r border-blue-500 last:border-r-0">${cell}</th>`;
+    });
+
+    tableHtml += `
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    // Data rows
+    for (let i = 1; i < normalizedRows.length; i++) {
+      const bgClass = i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+      tableHtml += `<tr class="${bgClass} hover:bg-blue-50 transition-colors border-b border-gray-200">`;
+      
+      normalizedRows[i].forEach((cell) => {
+        tableHtml += `<td class="px-6 py-3 text-gray-700 text-sm font-medium">${cell || '-'}</td>`;
+      });
+      
+      tableHtml += '</tr>';
+    }
+
+    tableHtml += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
     return tableHtml;
   };
 
@@ -314,15 +375,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
   };
 
   return (
-    <Card className="h-full flex flex-col max-w-full shadow-lg border-gray-200">
-      <CardHeader className="flex-shrink-0">
-        <div className="flex items-center justify-between">
+    <Card className="h-full w-full flex flex-col shadow-lg border-gray-200 rounded-lg overflow-hidden">
+      <CardHeader className="flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+        <div className="flex items-center justify-between flex-col md:flex-row gap-2">
           <div>
-            <CardTitle className="flex items-center">
-              <MessageSquare className="mr-2 h-5 w-5" />
+            <CardTitle className="flex items-center text-lg md:text-xl">
+              <MessageSquare className="mr-2 h-5 w-5 text-blue-600" />
               AI Document Chat
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs md:text-sm">
               Ask questions about your document and get intelligent answers
             </CardDescription>
           </div>
@@ -337,7 +398,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
           </div>
         </div>
         {apiError && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="mt-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               {apiError}
@@ -346,39 +407,39 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
         )}
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+      <CardContent className="flex-1 flex flex-col p-0 overflow-hidden bg-white">
         {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-          <div className="space-y-4">
+        <ScrollArea className="flex-1 w-full overflow-hidden" ref={scrollAreaRef}>
+          <div className="p-4 space-y-3">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`flex max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                    } items-start space-x-2`}
+                  className={`flex w-full max-w-[95%] md:max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                    } items-start gap-2 md:gap-3`}
                 >
                   <div
-                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${message.role === 'user'
-                      ? 'bg-blue-600 text-white ml-2'
-                      : 'bg-purple-600 text-white mr-2'
+                    className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white ${message.role === 'user'
+                      ? 'bg-blue-600'
+                      : 'bg-gradient-to-r from-purple-600 to-indigo-600'
                       }`}
                   >
                     {message.role === 'user' ? (
-                      <User className="h-4 w-4" />
+                      <User className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     ) : (
-                      <Bot className="h-4 w-4" />
+                      <Bot className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     )}
                   </div>
                   <div
-                    className={`rounded-lg p-3 ${message.role === 'user'
+                    className={`rounded-lg p-2.5 md:p-3 max-w-full ${message.role === 'user'
                       ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-900'
+                      : 'bg-gray-50 text-gray-900 border border-gray-200'
                       }`}
                   >
                     <div
-                      className="text-sm overflow-x-auto"
+                      className="text-xs md:text-sm overflow-x-auto break-words"
                       dangerouslySetInnerHTML={{
                         __html: message.role === 'assistant' ? formatResponse(message.content) : message.content
                       }}
@@ -396,14 +457,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="flex items-start space-x-2">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center">
-                    <Bot className="h-4 w-4" />
+                <div className="flex items-start gap-2">
+                  <div className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex items-center justify-center">
+                    <Bot className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   </div>
-                  <div className="bg-gray-100 text-gray-900 rounded-lg p-3">
-                    <div className="flex items-center space-x-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Analyzing your question...</span>
+                  <div className="bg-gray-50 text-gray-900 rounded-lg p-2.5 md:p-3 border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 animate-spin" />
+                      <span className="text-xs md:text-sm">Analyzing your question...</span>
                     </div>
                   </div>
                 </div>
@@ -414,14 +475,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
 
         {/* Suggested Questions */}
         {messages.length === 1 && (
-          <div className="px-4 py-2 border-t">
-            <p className="text-sm text-gray-600 mb-2">Try asking:</p>
+          <div className="px-4 py-3 border-t bg-gray-50 flex-shrink-0">
+            <p className="text-xs md:text-sm text-gray-600 mb-2 font-medium">Try asking:</p>
             <div className="flex flex-wrap gap-2">
               {suggestedQuestions.map((question, index) => (
                 <Badge
                   key={index}
                   variant="outline"
-                  className="cursor-pointer hover:bg-gray-100"
+                  className="cursor-pointer hover:bg-blue-100 hover:text-blue-700 text-xs transition-colors"
                   onClick={() => handleSuggestedQuestion(question)}
                 >
                   {question}
@@ -432,21 +493,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ extractedData }) => {
         )}
 
         {/* Input Area */}
-        <div className="p-4 border-t">
-          <div className="flex space-x-2">
+        <div className="p-3 md:p-4 border-t bg-white flex-shrink-0">
+          <div className="flex gap-2">
             <Textarea
               ref={textareaRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Ask a question about your document..."
-              className="flex-1 min-h-[44px] max-h-32 resize-none"
+              className="flex-1 min-h-[44px] max-h-32 resize-none text-sm"
               disabled={isLoading}
             />
             <Button
               onClick={sendMessage}
               disabled={!inputValue.trim() || isLoading}
-              className="px-3"
+              className="px-2 md:px-3 h-auto bg-blue-600 hover:bg-blue-700 flex-shrink-0"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
